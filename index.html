@@ -1,10 +1,117 @@
 <!DOCTYPE html>
-<html>
+<meta charset="utf-8">
+
 <head>
-    <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
-    <script src="https://d3js.org/d3.v4.js"></script>
+    <style>
+
+        body {
+            margin: 0;
+            background: #073642;
+            min-width: 800px;
+            min-height: 600px;
+        }
+
+        rect {
+            fill: none;
+            pointer-events: all;
+        }
+
+
+        circle{
+            width: 20px;
+            height: 20px;
+            r: 20;
+        }
+
+    </style>
 </head>
-<body>
-Doot doot!
+
+<body onresize="resize()">s
+
+<script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
+
+<script>
+
+    var width = innerWidth,
+            height = innerHeight;
+
+    // Colours (solarized)
+    var baseColours = ['#002b36', '#073642', '#586e75', '#657b83', '#839496', '#93a1a1', '#eee8d5', '#fdf6e3'],
+            highlightColours = ['#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'];
+
+    var nodeBranches = [0, 1, 2, 3, 4];
+
+    // Create a vertical "channel" for each branch
+    var x = d3.scale.linear()
+            .domain([0, d3.max(nodeBranches)+2])
+            .range([0, width]);
+
+    // Zoom behaviour
+
+    var zoom = d3.behavior.zoom()
+            .scaleExtent([1, 10])
+            .on("zoom", zoomed);
+
+    // Drag behaviour
+
+    var drag = d3.behavior.drag()
+            .origin(function(d) { return d; })
+            .on("drag", function() {d3.select(this)
+                    .attr("cx", d3.event.x)
+                    .attr("cy", d3.event.y);
+            });
+
+    // Place svg, set size
+    var graph = d3.select("body")
+                .attr("background", baseColours[1])
+            .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+            .append("g")
+                .call(zoom)
+            .append("g");
+
+    var rect = graph.append("rect")
+            .attr("width", width)
+            .attr("height", height);
+
+    // Create nodes
+    var nodes = graph.selectAll("circle .nodes")
+            .data(nodeBranches)
+            .enter().append("svg:circle")
+                .attr("class", "nodes")
+                .attr("cx", function(d) {return x(d+1);})
+                .attr("cy", 200)
+                .attr("branch", function(d) {return d;})
+                .attr("fill", function(d) {return highlightColours[d % highlightColours.length];});
+
+    function resize() {
+        // Update size vars
+        width = innerWidth;
+        height = innerHeight;
+
+        // Update svg
+        d3.selectAll("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+        // Update linear scales
+        x = d3.scale.linear()
+                .domain([0, d3.max(nodeBranches)+2])
+                .range([0, width]);
+
+        // Update node positions
+        nodes.attr("cx", function(d) {return x(d+1)});
+
+        // Update rect
+        rect.attr("width", width)
+                .attr("height", height)
+    }
+
+    function zoomed() {
+        graph.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+    }
+
+</script>
+
 </body>
-</html>
