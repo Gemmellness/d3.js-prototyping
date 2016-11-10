@@ -16,8 +16,7 @@
             pointer-events: all;
         }
 
-
-        circle{
+        .node circle {
             width: 20px;
             height: 20px;
             r: 20;
@@ -31,7 +30,7 @@
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 
 <script>
-
+    /* Magic numbers etc */
     var width = innerWidth,
             height = innerHeight;
 
@@ -39,51 +38,67 @@
     var baseColours = ['#002b36', '#073642', '#586e75', '#657b83', '#839496', '#93a1a1', '#eee8d5', '#fdf6e3'],
             highlightColours = ['#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'];
 
-    var nodeBranches = [0, 1, 2, 3, 4];
+    // x and y are to be calculated later
+    var nodeData = [{ branch: 0, x: 0, y: 0},
+        {branch: 1, x: 0, y: 0},
+        {branch: 2, x: 0, y: 0},
+        {branch: 3, x: 0, y: 0},
+        {branch: 4, x: 0, y: 0}];
 
-    // Create a vertical "channel" for each branch
-    var x = d3.scale.linear()
-            .domain([0, d3.max(nodeBranches)+2])
-            .range([0, width]);
+    /* Basic containers */
+    // Place svg, set size
+    var graph = d3.select("body")
+            .attr("background", baseColours[1])
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .append("g");
 
+    var container = graph.append("g");
+
+    // g stretcher
+    var rect = graph.append("rect")
+            .style("fill", "none")
+            .attr("width", width)
+            .attr("height", height)
+            .style("pointer-events", "all");
+
+    /* Behaviours */
     // Zoom behaviour
-
     var zoom = d3.behavior.zoom()
             .scaleExtent([1, 10])
             .on("zoom", zoomed);
+    graph.call(zoom);
 
     // Drag behaviour
-
     var drag = d3.behavior.drag()
-            .origin(function(d) { return d; })
-            .on("drag", function() {d3.select(this)
-                    .attr("cx", d3.event.x)
-                    .attr("cy", d3.event.y);
-            });
+            .origin(function (d) {return d;})
+            .on("dragstart", dragstarted)
+            .on("drag", dragged);
 
-    // Place svg, set size
-    var graph = d3.select("body")
-                .attr("background", baseColours[1])
-            .append("svg")
-                .attr("width", width)
-                .attr("height", height)
-            .append("g")
-                .call(zoom)
-            .append("g");
+    // Create a vertical "channel" for each branch
+    var x;
 
-    var rect = graph.append("rect")
-            .attr("width", width)
-            .attr("height", height);
+    function updateChannels() {
+        x = d3.scale.linear()
+                .domain([0, d3.max(nodeData, function (d) {return d.branch;}) + 2])
+                .range([0, width]);
+
+    }
+
+    updateChannels();
 
     // Create nodes
-    var nodes = graph.selectAll("circle .nodes")
-            .data(nodeBranches)
+    var nodes = container.selectAll("circle.nodes")
+                .data(nodeData)
             .enter().append("svg:circle")
-                .attr("class", "nodes")
-                .attr("cx", function(d) {return x(d+1);})
-                .attr("cy", 200)
-                .attr("branch", function(d) {return d;})
-                .attr("fill", function(d) {return highlightColours[d % highlightColours.length];});
+            .attr("class", "nodes")
+            .attr("cx", function (d) {return x(d.branch + 1);})
+            .attr("cy", 200)
+            .attr("r", 20)
+            .attr("branch", function (d) {return d.branch;})
+            .attr("fill", function (d) {return highlightColours[d.branch % highlightColours.length];})
+            .call(drag);
 
     function resize() {
         // Update size vars
@@ -96,12 +111,12 @@
                 .attr("height", height);
 
         // Update linear scales
-        x = d3.scale.linear()
-                .domain([0, d3.max(nodeBranches)+2])
-                .range([0, width]);
+        updateChannels();
 
         // Update node positions
-        nodes.attr("cx", function(d) {return x(d+1)});
+        nodes.attr("cx", function (d) {
+            return x(d.branch + 1)
+        });
 
         // Update rect
         rect.attr("width", width)
@@ -109,9 +124,16 @@
     }
 
     function zoomed() {
-        graph.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+        container.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+    }
+
+    function dragstarted(d) {
+        d3.event.sourceEvent.stopPropagation();
+    }
+
+    function dragged(d) {
+        d3.select(this).attr("cx", d.x = d3.event.x).attr("cy", d.y = d3.event.y);
     }
 
 </script>
-
 </body>
