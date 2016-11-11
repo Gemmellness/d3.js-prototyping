@@ -6,7 +6,6 @@
 
         body {
             margin: 0;
-            background: #073642;
             min-width: 800px;
             min-height: 600px;
         }
@@ -16,7 +15,7 @@
             pointer-events: all;
         }
 
-        .node circle {
+        .dot circle {
             width: 20px;
             height: 20px;
             r: 20;
@@ -25,18 +24,16 @@
     </style>
 </head>
 
-<body onresize="resize()">s
-
-<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<body onresize="resize()"><script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 
 <script>
     /* Magic numbers etc */
     var width = innerWidth,
-            height = innerHeight;
+        height = innerHeight;
 
     // Colours (solarized)
     var baseColours = ['#002b36', '#073642', '#586e75', '#657b83', '#839496', '#93a1a1', '#eee8d5', '#fdf6e3'],
-            highlightColours = ['#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'];
+        highlightColours = ['#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'];
 
     // x and y are to be calculated later
     var nodeData = [{ branch: 0, x: 0, y: 0},
@@ -45,60 +42,68 @@
         {branch: 3, x: 0, y: 0},
         {branch: 4, x: 0, y: 0}];
 
-    /* Basic containers */
-    // Place svg, set size
-    var graph = d3.select("body")
-            .attr("background", baseColours[1])
-            .append("svg")
-            .attr("width", width)
-            .attr("height", height)
-            .append("g");
-
-    var container = graph.append("g");
-
-    // g stretcher
-    var rect = graph.append("rect")
-            .style("fill", "none")
-            .attr("width", width)
-            .attr("height", height)
-            .style("pointer-events", "all");
-
     /* Behaviours */
     // Zoom behaviour
     var zoom = d3.behavior.zoom()
             .scaleExtent([1, 10])
             .on("zoom", zoomed);
-    graph.call(zoom);
 
     // Drag behaviour
     var drag = d3.behavior.drag()
-            .origin(function (d) {return d;})
+            .origin(function(d) { return d; })
             .on("dragstart", dragstarted)
-            .on("drag", dragged);
+            .on("drag", dragged)
+            .on("dragend", dragended);
+
+    /* Basic containers */
+    // Place svg, set size
+    var graph = d3.select("body")
+            .style("background", baseColours[0])
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .append("g")
+            .attr("transform", "translate(" + 0 + "," + 0 + ")")
+            .call(zoom);
+
+    // Panning rectangle
+    var rect = graph.append("rect")
+            .attr("width", width)
+            .attr("height", height)
+            .style("fill", "none")
+            .style("pointer-events", "all");
+
+    var container = graph.append("g");
 
     // Create a vertical "channel" for each branch
     var x;
-
     function updateChannels() {
         x = d3.scale.linear()
                 .domain([0, d3.max(nodeData, function (d) {return d.branch;}) + 2])
                 .range([0, width]);
 
     }
-
     updateChannels();
 
     // Create nodes
-    var nodes = container.selectAll("circle.nodes")
+    var nodes = container.append("g")
+            .attr("class", "graph")
+            .selectAll("circle")
                 .data(nodeData)
-            .enter().append("svg:circle")
-            .attr("class", "nodes")
-            .attr("cx", function (d) {return x(d.branch + 1);})
-            .attr("cy", 200)
+            .enter().append("circle")
+            .attr("class", "node")
+            .attr("cx", function (d) {var cx = x(d.branch + 1); d.x=cx; return cx;})
+            .attr("cy", function (d) {var cy = 200; d.y = 200; return cy;})
             .attr("r", 20)
-            .attr("branch", function (d) {return d.branch;})
             .attr("fill", function (d) {return highlightColours[d.branch % highlightColours.length];})
-            .call(drag);
+            .call(drag)
+            .on("mouseover", function() {
+                d3.select(this).attr("stroke", baseColours[1])
+                        .attr("stroke-width", "1.5px");
+            })
+            .on('mouseout', function() {
+                d3.select(this).attr("stroke-width", "0px");
+            });
 
     function resize() {
         // Update size vars
@@ -120,7 +125,7 @@
 
         // Update rect
         rect.attr("width", width)
-                .attr("height", height)
+            .attr("height", height);
     }
 
     function zoomed() {
@@ -129,11 +134,16 @@
 
     function dragstarted(d) {
         d3.event.sourceEvent.stopPropagation();
+        d3.select(this).classed("dragging", true);
     }
 
     function dragged(d) {
-        d3.select(this).attr("cx", d.x = d3.event.x).attr("cy", d.y = d3.event.y);
+        d3.select(this).attr("cx", d.x = d3.event.x)
+                .attr("cy", d.y = d3.event.y);
     }
 
-</script>
-</body>
+    function dragended(d) {
+        d3.select(this).classed("dragging", false);
+    }
+
+</script></body>
