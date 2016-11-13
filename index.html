@@ -15,10 +15,10 @@
             pointer-events: all;
         }
 
-        .dot circle {
+        .node circle {
             width: 20px;
             height: 20px;
-            r: 20;
+            r: 10;
         }
 
     </style>
@@ -35,12 +35,32 @@
     var baseColours = ['#002b36', '#073642', '#586e75', '#657b83', '#839496', '#93a1a1', '#eee8d5', '#fdf6e3'],
         highlightColours = ['#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'];
 
-    // x and y are to be calculated later
-    var nodeData = [{ branch: 0, x: 0, y: 0},
-        {branch: 1, x: 0, y: 0},
-        {branch: 2, x: 0, y: 0},
-        {branch: 3, x: 0, y: 0},
-        {branch: 4, x: 0, y: 0}];
+    /* Assumptions about this data:
+     *
+     * The first node is the root
+     * Every node's children are below it in the array
+     *
+     * */
+    /*var nodeData = [{branch: "master", hash: "node0", children: [1]},
+        {branch: "master", hash: "node1", children: [2]},
+        {branch: "master", hash: "node2", children: [3,5]},
+        {branch: "bugfix1", hash: "node3", children: [4]},
+        {branch: "bugfix1", hash: "node4", children: [5]},
+        {branch: "master", hash: "node5", children: [6,8]},
+        {branch: "master", hash: "node6", children: []},
+        {branch: "macversion", hash: "node7", children: [8]},
+        {branch: "macversion", hash: "node8", children: []}];*/
+
+    var nodeData = [{branch: "master", hash: "node0", children: [1]},
+        {branch: "master", hash: "node1", children: [2]},
+        {branch: "master", hash: "node2", children: [3]},
+        {branch: "master", hash: "node3", children: []}];
+
+    // Should be calculable from the graph
+    var maxWidth = 1;
+
+    // Add (stub) x & y values
+    nodeData = nodeData.map(function (o) {o.x = 0; o.y = 0; return o;});
 
     /* Behaviours */
     // Zoom behaviour
@@ -76,26 +96,58 @@
     var container = graph.append("g");
 
     // Create a vertical "channel" for each branch
-    var x;
+    var dx;
     function updateChannels() {
-        x = d3.scale.linear()
-                .domain([0, d3.max(nodeData, function (d) {return d.branch;}) + 2])
+        dx = d3.scale.linear()
+                .domain([0, maxWidth+2])
                 .range([0, width]);
 
     }
     updateChannels();
 
+    // Vertical spacing of nodes
+    var yScale = 60;
+
+    // Verticle step of current node
+    var yStep = 0;
+    // Horizontal step of current node
+    var xStep = 0;
+    // Current branch number
+    var branchNo = 0;
+    // Last branch label (for
+    var lastBranch = "";
+
     // Create nodes
     var nodes = container.append("g")
             .attr("class", "graph")
-            .selectAll("circle")
+            .selectAll("nodes")
                 .data(nodeData)
-            .enter().append("circle")
+            .enter().append("g")
+            .attr("class", "commit")
+            .attr("transform", function(d){return "translate("+d.x+",80)"})
+            .append("circle")
+            .attr("r", 15)
             .attr("class", "node")
-            .attr("cx", function (d) {var cx = x(d.branch + 1); d.x=cx; return cx;})
-            .attr("cy", function (d) {var cy = 200; d.y = 200; return cy;})
-            .attr("r", 20)
-            .attr("fill", function (d) {return highlightColours[d.branch % highlightColours.length];})
+            .attr("hash", function(d) {return d.hash;})
+            .attr("cx", function (d) {
+                var cx = dx(xStep+1);
+                d.x = cx;
+                return cx;
+            })
+            .attr("cy", function (d) {
+                var cy = yScale*(yStep+1);
+                yStep++;
+                d.y = cy;
+                return cy;
+            })
+            .attr("fill", function (d){
+                if(d.branch != lastBranch){
+                    branchNo++;
+                }
+
+                lastBranch = d.branch;
+                return highlightColours[branchNo % highlightColours.length];
+            })
             .call(drag)
             .on("mouseover", function() {
                 d3.select(this).attr("stroke", baseColours[1])
@@ -104,6 +156,21 @@
             .on('mouseout', function() {
                 d3.select(this).attr("stroke-width", "0px");
             });
+
+    var labels = container.selectAll(".commit")
+            .append("text")
+            .attr("class", "label")
+            .attr("x", function (d) {return d.x+20})
+            .attr("y", function (d) {return d.y+5;})
+            .attr("font-family", "sans-serif")
+            .attr("font-weight", "bold")
+            .attr("fill", baseColours[6])
+            .text(function (d) {return d.hash});
+
+    function updateLabels () {
+        labels.attr("x", function (d) {return d.x+20})
+                .attr("y", function (d) {return d.y+5;});
+    }
 
     function resize() {
         // Update size vars
@@ -117,11 +184,6 @@
 
         // Update linear scales
         updateChannels();
-
-        // Update node positions
-        nodes.attr("cx", function (d) {
-            return x(d.branch + 1)
-        });
 
         // Update rect
         rect.attr("width", width)
@@ -140,6 +202,7 @@
     function dragged(d) {
         d3.select(this).attr("cx", d.x = d3.event.x)
                 .attr("cy", d.y = d3.event.y);
+        updateLabels();
     }
 
     function dragended(d) {
