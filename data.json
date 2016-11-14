@@ -1,0 +1,26 @@
+{
+  "nodes": [
+    {"id": "node1", "branch": "master"},
+    {"id": "node2", "branch": "master"},
+    {"id": "node3", "branch": "master"},
+    {"id": "node4", "branch": "master"},
+    {"id": "node5", "branch": "master"},
+    {"id": "node6", "branch": "bugfix1"},
+    {"id": "node7", "branch": "bugfix1"},
+    {"id": "node8", "branch": "macversion"},
+    {"id": "node9", "branch": "macversion"}
+  ],
+
+  "edges": [
+    {"source": "node1", "target": "node2", "branch": "master"},
+    {"source": "node2", "target": "node3", "branch": "master"},
+    {"source": "node3", "target": "node4", "branch": "master"},
+    {"source": "node4", "target": "node5", "branch": "master"},
+    {"source": "node3", "target": "node6", "branch": "bugfix1"},
+    {"source": "node6", "target": "node7", "branch": "bugfix1"},
+    {"source": "node7", "target": "node4", "branch": "bugfix1"},
+    {"source": "node3", "target": "node8", "branch": "macversion"},
+    {"source": "node8", "target": "node9", "branch": "macversion"},
+    {"source": "node4", "target": "node9", "branch": "macversion"}
+  ]
+}

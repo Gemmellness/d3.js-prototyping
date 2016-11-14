@@ -16,15 +16,18 @@
         }
 
         .node circle {
-            width: 20px;
-            height: 20px;
             r: 10;
+        }
+
+        .label text{
+            font-family: "sans-serif";
+            font-weight: bold;
         }
 
     </style>
 </head>
 
-<body onresize="resize()"><script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<body onresize="resize()"><script src="http://d3js.org/d3.v4.min.js" charset="utf-8"></script>
 
 <script>
     /* Magic numbers etc */
@@ -37,43 +40,22 @@
 
     /* Assumptions about this data:
      *
-     * The first node is the root
-     * Every node's children are below it in the array
      *
      * */
-    /*var nodeData = [{branch: "master", hash: "node0", children: [1]},
-        {branch: "master", hash: "node1", children: [2]},
-        {branch: "master", hash: "node2", children: [3,5]},
-        {branch: "bugfix1", hash: "node3", children: [4]},
-        {branch: "bugfix1", hash: "node4", children: [5]},
-        {branch: "master", hash: "node5", children: [6,8]},
-        {branch: "master", hash: "node6", children: []},
-        {branch: "macversion", hash: "node7", children: [8]},
-        {branch: "macversion", hash: "node8", children: []}];*/
 
-    var nodeData = [{branch: "master", hash: "node0", children: [1]},
-        {branch: "master", hash: "node1", children: [2]},
-        {branch: "master", hash: "node2", children: [3]},
-        {branch: "master", hash: "node3", children: []}];
+    var branches = ["master", "bugfix1", "macversion"];
 
-    // Should be calculable from the graph
-    var maxWidth = 1;
-
-    // Add (stub) x & y values
-    nodeData = nodeData.map(function (o) {o.x = 0; o.y = 0; return o;});
 
     /* Behaviours */
     // Zoom behaviour
-    var zoom = d3.behavior.zoom()
+    var zoom = d3.zoom()
             .scaleExtent([1, 10])
             .on("zoom", zoomed);
 
     // Drag behaviour
-    var drag = d3.behavior.drag()
-            .origin(function(d) { return d; })
-            .on("dragstart", dragstarted)
-            .on("drag", dragged)
-            .on("dragend", dragended);
+    var drag = d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged);
 
     /* Basic containers */
     // Place svg, set size
@@ -89,88 +71,103 @@
     // Panning rectangle
     var rect = graph.append("rect")
             .attr("width", width)
-            .attr("height", height)
+            .attr("height", height  )
             .style("fill", "none")
             .style("pointer-events", "all");
 
     var container = graph.append("g");
 
-    // Create a vertical "channel" for each branch
-    var dx;
-    function updateChannels() {
-        dx = d3.scale.linear()
-                .domain([0, maxWidth+2])
-                .range([0, width]);
+    var simulation = d3.forceSimulation()
+            .force("link", d3.forceLink().id(function(d) { return d.id; }))
+            .force("charge", d3.forceManyBody())
+            .force("center", d3.forceCenter(width / 2, height / 2));
 
-    }
-    updateChannels();
+    d3.json("data.json", function(error, data) {
+        if (error) throw error;
 
-    // Vertical spacing of nodes
-    var yScale = 60;
+        // Create edges
+        var edges = container.append("g")
+                .attr("class", "edges")
+                .selectAll(".edge")
+                .data(data.edges)
+                .enter().append("line")
+                .attr("class", "edge")
+                .attr("stroke", (function (d) {
+                    return highlightColours[branches.indexOf(d.branch) % highlightColours.length];
+                }))
+                .attr("opacity", 0.6)
+                .attr("stroke-width", 3);
 
-    // Verticle step of current node
-    var yStep = 0;
-    // Horizontal step of current node
-    var xStep = 0;
-    // Current branch number
-    var branchNo = 0;
-    // Last branch label (for
-    var lastBranch = "";
+        // Create nodes
+        var nodes = container.append("g")
+                .attr("class", "graph")
+                .selectAll("node")
+                .data(data.nodes)
+                .enter().append("g")
+                .attr("class", "commit")
+                .append("circle")
+                .attr("r", 15)
+                .attr("class", "node")
+                .attr("fill", function (d) {
+                    return highlightColours[branches.indexOf(d.branch) % highlightColours.length];
+                })
+                .call(drag)
+                .on("mouseover", function () {
+                    d3.select(this).attr("stroke", baseColours[1])
+                            .attr("stroke-width", "1.5px");
+                })
+                .on('mouseout', function () {
+                    d3.select(this).attr("stroke-width", "0px");
+                });
 
-    // Create nodes
-    var nodes = container.append("g")
-            .attr("class", "graph")
-            .selectAll("nodes")
-                .data(nodeData)
-            .enter().append("g")
-            .attr("class", "commit")
-            .attr("transform", function(d){return "translate("+d.x+",80)"})
-            .append("circle")
-            .attr("r", 15)
-            .attr("class", "node")
-            .attr("hash", function(d) {return d.hash;})
-            .attr("cx", function (d) {
-                var cx = dx(xStep+1);
-                d.x = cx;
-                return cx;
+        // Create labels
+       /* var labels = container.selectAll(".commit")
+                .append("text")
+                .attr("class", "label")
+                .attr("x", function (d) {
+                    return d.x + 20
+                })
+                .attr("y", function (d) {
+                    return d.y + 5;
+                })
+                .text(function (d) {
+                    return d.hash
+                })
+                .attr("fill", baseColours[6]);*/
+
+        simulation.nodes(data.nodes)
+                .on("tick", ticked);
+
+        simulation.force("link")
+                .links(data.edges);
+
+        function ticked() {
+            edges.attr("x1", function (d) {
+                return d.source.x;
             })
-            .attr("cy", function (d) {
-                var cy = yScale*(yStep+1);
-                yStep++;
-                d.y = cy;
-                return cy;
-            })
-            .attr("fill", function (d){
-                if(d.branch != lastBranch){
-                    branchNo++;
-                }
+                    .attr("y1", function (d) {
+                        return d.source.y;
+                    })
+                    .attr("x2", function (d) {
+                        return d.target.x;
+                    })
+                    .attr("y2", function (d) {
+                        return d.target.y;
+                    });
 
-                lastBranch = d.branch;
-                return highlightColours[branchNo % highlightColours.length];
+            nodes.attr("cx", function (d) {
+                return d.x;
             })
-            .call(drag)
-            .on("mouseover", function() {
-                d3.select(this).attr("stroke", baseColours[1])
-                        .attr("stroke-width", "1.5px");
-            })
-            .on('mouseout', function() {
-                d3.select(this).attr("stroke-width", "0px");
-            });
+                    .attr("cy", function (d) {
+                        return d.y;
+                    });
+        }
+    });
 
-    var labels = container.selectAll(".commit")
-            .append("text")
-            .attr("class", "label")
-            .attr("x", function (d) {return d.x+20})
-            .attr("y", function (d) {return d.y+5;})
-            .attr("font-family", "sans-serif")
-            .attr("font-weight", "bold")
-            .attr("fill", baseColours[6])
-            .text(function (d) {return d.hash});
-
-    function updateLabels () {
+    /*function updateLabels () {
         labels.attr("x", function (d) {return d.x+20})
                 .attr("y", function (d) {return d.y+5;});
-    }
+    }*/
 
     function resize() {
         // Update size vars
@@ -179,11 +176,8 @@
 
         // Update svg
         d3.selectAll("svg")
-                .attr("width", width)
-                .attr("height", height);
-
-        // Update linear scales
-        updateChannels();
+            .attr("width", width)
+            .attr("height", height);
 
         // Update rect
         rect.attr("width", width)
@@ -191,22 +185,23 @@
     }
 
     function zoomed() {
-        container.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+        container.attr("transform", d3.event.transform);
     }
 
-    function dragstarted(d) {
+    function dragstarted() {
         d3.event.sourceEvent.stopPropagation();
-        d3.select(this).classed("dragging", true);
+
+        if (!d3.event.active)
+            simulation.alphaTarget(0.3).restart();
     }
 
     function dragged(d) {
         d3.select(this).attr("cx", d.x = d3.event.x)
                 .attr("cy", d.y = d3.event.y);
-        updateLabels();
-    }
 
-    function dragended(d) {
-        d3.select(this).classed("dragging", false);
+        d.fx = d3.event.x;
+        d.fy = d3.event.y;
+        //updateLabels();
     }
 
 </script></body>
