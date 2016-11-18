@@ -1,14 +1,14 @@
 {
   "nodes": [
-    {"id": "node1", "branch": "master"},
-    {"id": "node2", "branch": "master"},
-    {"id": "node3", "branch": "master"},
-    {"id": "node4", "branch": "master"},
-    {"id": "node5", "branch": "master"},
-    {"id": "node6", "branch": "bugfix1"},
-    {"id": "node7", "branch": "bugfix1"},
-    {"id": "node8", "branch": "macversion"},
-    {"id": "node9", "branch": "macversion"}
+    {"hash": "node1", "branch": "master"},
+    {"hash": "node2", "branch": "master"},
+    {"hash": "node3", "branch": "master"},
+    {"hash": "node4", "branch": "master"},
+    {"hash": "node5", "branch": "master"},
+    {"hash": "node6", "branch": "bugfix1"},
+    {"hash": "node7", "branch": "bugfix1"},
+    {"hash": "node8", "branch": "macversion"},
+    {"hash": "node9", "branch": "macversion"}
   ],
 
   "edges": [
