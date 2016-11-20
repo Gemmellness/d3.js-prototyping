@@ -10,13 +10,8 @@
             min-height: 600px;
         }
 
-        rect {
-            fill: none;
-            pointer-events: all;
-        }
-
-        .node circle {
-            r: 10;
+        .node circle{
+            r: 5;
         }
 
         .label text{
@@ -28,18 +23,18 @@
 </head>
 
 <body onresize="resize()"><script src="http://d3js.org/d3.v4.min.js" charset="utf-8"></script>
-
 <script>
-
-
     /* Magic numbers etc */
     var width = innerWidth,
-            height = innerHeight;
+        height = innerHeight;
 
     // Colours (solarized)
     var baseColours = ['#002b36', '#073642', '#586e75', '#657b83', '#839496', '#93a1a1', '#eee8d5', '#fdf6e3'],
-            highlightColours = ['#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'];
+        highlightColours = ['#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'];
 
+    var xSpacing = 40;
+    var ySpacing = 50;
+    var nodeSize = 10;
 
     /* Behaviours */
     // Zoom behaviour
@@ -72,10 +67,31 @@
 
     var container = graph.append("g");
 
+    var labels = container.append("g")
+        .attr("class", "labels");
+
+    /*
+    graph.append("defs").append("marker")
+        .attr({
+            "id":"arrow",
+            "viewBox":"0 -5 10 10",
+            "refX":5,
+            "refY":0,
+            "markerWidth":4,
+            "markerHeight":4,
+            "orient":"auto"
+        })
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("class","arrowHead");*/
+
     var logicalGraph = {
         nodes: [],
         edges: []
     };
+
+    var nodes,
+        edges;
 
     /* Assumptions about this data:
      *
@@ -87,27 +103,42 @@
     d3.json("data.json", function(error, data) {
         if (error) throw error;
 
-        logicalGraph.nodes = new Array(data.nodes.length);
-        logicalGraph.edges = new Array(data.edges.length);
+        logicalGraph.nodes = [];
+        logicalGraph.edges = data.edges;
 
         var currentLayer = [data.nodes[0]];
         var nextLayer = [];
 
+        var branches = [];
+
         var x = 0, y = 0;
 
         var i = 0;
-        while(i < data.nodes.length){
+        while(currentLayer.length > 0){
+            currentLayer.sort(function (a, b) {
+                if(a.hash < b.hash) return -1;
+                if(a.hash > b.hash) return 1;
+                return 0;
+            });
+
             for(var j = 0; j < currentLayer.length; j++){
                 var node = currentLayer[j];
 
                 //Set logical coords
-                node.logX = x;
-                node.logY = y;
+                node.x = xSpacing*(x+1);
+                node.y = ySpacing*(y+1);
                 x++;
 
                 // Store data in data
-                logicalGraph.nodes[i] = node;
+                logicalGraph.nodes.push(node);
                 i++;
+
+                // Check branches
+                //noinspection JSUnresolvedVariable
+                if(branches.indexOf(node.branch) == -1)
+                    { //noinspection JSUnresolvedVariable
+                        branches.push(node.branch);
+                    }
 
                 // Find all child nodes not already in the graph (for the next layer)
                 var outEdges = data.edges.filter(function (edge) { return edge.source == node.hash;});
@@ -122,7 +153,7 @@
                             previouslyOccurs = true;
                     }
 
-                    for(var l = 0; l < nextLayer.length && !previouslyOccurs; l++){
+                    for(l = 0; l < nextLayer.length && !previouslyOccurs; l++){
                         if (nextLayer[l].hash == candidateChild.hash)
                             previouslyOccurs = true;
                     }
@@ -140,61 +171,66 @@
             x = 0;
             y++;
         }
-    });
 
-    // Create edges
-    var edges = container.append("g")
+        // Create edges
+        edges = container.append("g")
             .attr("class", "edges")
             .selectAll(".edge")
             .data(logicalGraph.edges)
             .enter().append("line")
             .attr("class", "edge")
+            .attr("x1", function (d) {return logicalGraph.nodes.find(function (node) {return d.source == node.hash;}).x})
+            .attr("y1", function (d) {return logicalGraph.nodes.find(function (node) {return d.source == node.hash;}).y})
+            .attr("x2", function (d) {return logicalGraph.nodes.find(function (node) {return d.target == node.hash;}).x})
+            .attr("y2", function (d) {return logicalGraph.nodes.find(function (node) {return d.target == node.hash;}).y})
             .attr("stroke", (function (d) {
                 return highlightColours[branches.indexOf(d.branch) % highlightColours.length];
             }))
             .attr("opacity", 0.6)
             .attr("stroke-width", 3);
+            //.attr("marker-end", "url(#arrow");
 
-    // Create nodes
-    var nodes = container.append("g")
+        // Create nodes
+        nodes = container.append("g")
             .attr("class", "graph")
             .selectAll("node")
-            .data(data.nodes)
-            .enter().append("g")
-            .attr("class", "commit")
-            .append("circle")
-            .attr("r", 15)
+            .data(logicalGraph.nodes)
+            .enter().append("circle")
             .attr("class", "node")
+            .attr("r", nodeSize)
+            .attr("cx", function(d) {return d.x;})
+            .attr("cy", function(d) {return d.y;})
             .attr("fill", function (d) {
                 return highlightColours[branches.indexOf(d.branch) % highlightColours.length];
             })
             .call(drag)
-            .on("mouseover", function () {
+            .on("mouseover", function (d) {
                 d3.select(this).attr("stroke", baseColours[1])
-                        .attr("stroke-width", "1.5px");
+                    .attr("stroke-width", "1.5px");
+
+                labels.append("text")
+                    .attr("class", "label")
+                    .attr("text-anchor", "middle")
+                    .attr("x", d.x)
+                    .attr("y", d.y + 20)
+                    .text(d.hash)
+                    .attr("fill", baseColours[6])
+                    .attr("font-family", "sans-serif")
+                    .attr("font-weight", "bold")
+                    .raise();
             })
-            .on('mouseout', function () {
+            .on("mouseout", function () {
                 d3.select(this).attr("stroke-width", "0px");
+
+                labels.selectAll(".label").remove();
             });
+    });
 
-    // Create labels
-    var labels = container.selectAll(".commit")
-            .append("text")
-            .attr("class", "label")
-            .attr("x", function (d) {
-                return d.x + 20
-            })
-            .attr("y", function (d) {
-                return d.y + 5;
-            })
-            .text(function (d) {
-                return d.hash
-            })
-            .attr("fill", baseColours[6]);
-
-    function updateLabels () {
-        labels.attr("x", function (d) {return d.x+20})
-                .attr("y", function (d) {return d.y+5;});
+    function updateEdges () {
+        edges.attr("x1", function (d) {return logicalGraph.nodes.find(function (node) {return d.source == node.hash;}).x})
+            .attr("y1", function (d) {return logicalGraph.nodes.find(function (node) {return d.source == node.hash;}).y})
+            .attr("x2", function (d) {return logicalGraph.nodes.find(function (node) {return d.target == node.hash;}).x})
+            .attr("y2", function (d) {return logicalGraph.nodes.find(function (node) {return d.target == node.hash;}).y});
     }
 
     function resize() {
@@ -223,7 +259,7 @@
     function dragged(d) {
         d3.select(this).attr("cx", d.x = d3.event.x)
                 .attr("cy", d.y = d3.event.y);
-        //updateLabels();
+        updateEdges();
     }
 
 </script></body>
