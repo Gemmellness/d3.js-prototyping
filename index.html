@@ -44,8 +44,9 @@
 
     // Drag behaviour
     var drag = d3.drag()
-            .on("start", dragstarted)
-            .on("drag", dragged);
+            .on("start", dragStarted)
+            .on("drag", dragged)
+            .on("end", dragEnded);
 
     /* Basic containers */
     // Place svg, set size
@@ -69,6 +70,8 @@
 
     var labels = container.append("g")
         .attr("class", "labels");
+
+    var mouseDown = 0;
 
     /*
     graph.append("defs").append("marker")
@@ -98,6 +101,7 @@
      * The first node is the root of the tree
      * All nodes have unique hashes
      * The DAG is connected
+     * Depth is the maximum path length to the root
      *
      * */
     d3.json("data.json", function(error, data) {
@@ -111,7 +115,7 @@
 
         var branches = [];
 
-        var x = 0, y = 0;
+        var x = 0;
 
         var i = 0;
         while(currentLayer.length > 0){
@@ -126,7 +130,7 @@
 
                 //Set logical coords
                 node.x = xSpacing*(x+1);
-                node.y = ySpacing*(y+1);
+                node.y = ySpacing*(node.depth+1);
                 x++;
 
                 // Store data in data
@@ -169,7 +173,6 @@
             nextLayer = [];
 
             x = 0;
-            y++;
         }
 
         // Create edges
@@ -204,26 +207,33 @@
                 return highlightColours[branches.indexOf(d.branch) % highlightColours.length];
             })
             .call(drag)
-            .on("mouseover", function (d) {
+            .on("mouseover", function (d, i) {
                 d3.select(this).attr("stroke", baseColours[1])
                     .attr("stroke-width", "1.5px");
 
-                labels.append("text")
-                    .attr("class", "label")
-                    .attr("text-anchor", "middle")
-                    .attr("x", d.x)
-                    .attr("y", d.y + 20)
-                    .text(d.hash)
-                    .attr("fill", baseColours[6])
-                    .attr("font-family", "sans-serif")
-                    .attr("font-weight", "bold")
-                    .raise();
+                if(!mouseDown)
+                    labels.append("text")
+                        .attr("class", "label")
+                        .attr("text-anchor", "middle")
+                        .attr("x", d.x)
+                        .attr("y", d.y + 20)
+                        .text(d.hash)
+                        .attr("node", i)
+                        .attr("fill", baseColours[6])
+                        .attr("font-family", "sans-serif")
+                        .attr("font-weight", "bold")
+                        .raise();
             })
             .on("mouseout", function () {
                 d3.select(this).attr("stroke-width", "0px");
 
-                labels.selectAll(".label").remove();
+                // IMPORTANT - only 1 label can be present at once (I think)
+                if(!mouseDown)
+                    labels.selectAll(".label").remove();
             });
+
+        labels.raise();
+
     });
 
     function updateEdges () {
@@ -252,14 +262,31 @@
         container.attr("transform", d3.event.transform);
     }
 
-    function dragstarted() {
+    function dragStarted() {
         d3.event.sourceEvent.stopPropagation();
+        labels.selectAll(".label")
+            .attr("visibility", "hidden");
+
+        mouseDown = 1;
     }
 
     function dragged(d) {
         d3.select(this).attr("cx", d.x = d3.event.x)
                 .attr("cy", d.y = d3.event.y);
         updateEdges();
+    }
+
+    function dragEnded(){
+        // Update label (only 1)
+
+        var index = labels.select(".label").attr("node");
+
+        labels.select(".label")
+            .attr("visibility", "visible")
+            .attr("x", logicalGraph.nodes[index].x)
+            .attr("y", logicalGraph.nodes[index].y+20);
+
+        mouseDown = 0;
     }
 
 </script></body>
