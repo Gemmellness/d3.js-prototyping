@@ -98,19 +98,20 @@
 
     /* Assumptions about this data:
      *
-     * The first node is the root of the tree
+     * //The first node is the root of the tree
      * All nodes have unique hashes
      * The DAG is connected
      * Depth is the maximum path length to the root
      *
      * */
-    d3.json("data.json", function(error, data) {
+    d3.json("data2.json", function(error, data) {
         if (error) throw error;
 
         logicalGraph.nodes = [];
         logicalGraph.edges = data.edges;
 
-        var currentLayer = [data.nodes[0]];
+        var currentLayer = data.nodes.filter(function isHead(node) { return node.depth == 0});
+        var visited = [currentLayer[0].hash];
         var nextLayer = [];
 
         var branches = [];
@@ -120,8 +121,10 @@
         var i = 0;
         while(currentLayer.length > 0){
             currentLayer.sort(function (a, b) {
-                if(a.hash < b.hash) return -1;
-                if(a.hash > b.hash) return 1;
+                var ai = branches.indexOf(a.branch);
+                var bi = branches.indexOf(b.branch);
+                if(ai < bi) return -1;
+                if(bi > ai) return 1;
                 return 0;
             });
 
@@ -137,34 +140,31 @@
                 logicalGraph.nodes.push(node);
                 i++;
 
-                // Check branches
-                //noinspection JSUnresolvedVariable
-                if(branches.indexOf(node.branch) == -1)
-                    { //noinspection JSUnresolvedVariable
-                        branches.push(node.branch);
-                    }
-
                 // Find all child nodes not already in the graph (for the next layer)
-                var outEdges = data.edges.filter(function (edge) { return edge.source == node.hash;});
+                var outEdges = data.edges.filter(function (edge) { return edge.n1 == node.hash;});
 
                 for(var k = 0; k < outEdges.length; k++){
-                    var candidateChild = data.nodes.find(function (node) {return (node.hash == outEdges[k].target)});
+                    var candidateChild = data.nodes.find(function (node) {return (node.hash == outEdges[k].n2)});
 
                     // Check if already in the graph
                     var previouslyOccurs = false;
-                    for(var l = 0; l < logicalGraph.nodes.length && !previouslyOccurs; l++){
-                        if (logicalGraph.nodes[l].hash == candidateChild.hash)
-                            previouslyOccurs = true;
-                    }
-
-                    for(l = 0; l < nextLayer.length && !previouslyOccurs; l++){
-                        if (nextLayer[l].hash == candidateChild.hash)
+                    for(var l = 0; l < visited.length && !previouslyOccurs; l++){
+                        if (visited[l].hash == candidateChild.hash)
                             previouslyOccurs = true;
                     }
 
                     // If not already in graph/next layer, push node to next layer queue
-                    if(!previouslyOccurs)
-                        nextLayer.push(candidateChild)
+                    if(!previouslyOccurs) {
+                        nextLayer.push(candidateChild);
+                        visited.push(candidateChild.hash);
+
+                        // Check branches
+                        //noinspection JSUnresolvedVariable
+                        if(branches.indexOf(node.branch) == -1)
+                        { //noinspection JSUnresolvedVariable
+                            branches.push(node.branch);
+                        }
+                    }
 
                 }
             }
@@ -182,12 +182,12 @@
             .data(logicalGraph.edges)
             .enter().append("line")
             .attr("class", "edge")
-            .attr("x1", function (d) {return logicalGraph.nodes.find(function (node) {return d.source == node.hash;}).x})
-            .attr("y1", function (d) {return logicalGraph.nodes.find(function (node) {return d.source == node.hash;}).y})
-            .attr("x2", function (d) {return logicalGraph.nodes.find(function (node) {return d.target == node.hash;}).x})
-            .attr("y2", function (d) {return logicalGraph.nodes.find(function (node) {return d.target == node.hash;}).y})
+            .attr("x1", function (d) {return logicalGraph.nodes.find(function (node) {return d.n1 == node.hash;}).x})
+            .attr("y1", function (d) {return logicalGraph.nodes.find(function (node) {return d.n1 == node.hash;}).y})
+            .attr("x2", function (d) {return logicalGraph.nodes.find(function (node) {return d.n2 == node.hash;}).x})
+            .attr("y2", function (d) {return logicalGraph.nodes.find(function (node) {return d.n2 == node.hash;}).y})
             .attr("stroke", (function (d) {
-                return highlightColours[branches.indexOf(d.branch) % highlightColours.length];
+                return highlightColours[branches.indexOf(data.nodes.filter(function isTarget(node) {return node.hash == d.n2})[0].branch) % highlightColours.length];
             }))
             .attr("opacity", 0.6)
             .attr("stroke-width", 3);
@@ -237,10 +237,10 @@
     });
 
     function updateEdges () {
-        edges.attr("x1", function (d) {return logicalGraph.nodes.find(function (node) {return d.source == node.hash;}).x})
-            .attr("y1", function (d) {return logicalGraph.nodes.find(function (node) {return d.source == node.hash;}).y})
-            .attr("x2", function (d) {return logicalGraph.nodes.find(function (node) {return d.target == node.hash;}).x})
-            .attr("y2", function (d) {return logicalGraph.nodes.find(function (node) {return d.target == node.hash;}).y});
+        edges.attr("x1", function (d) {return logicalGraph.nodes.find(function (node) {return d.n1 == node.hash;}).x})
+            .attr("y1", function (d) {return logicalGraph.nodes.find(function (node) {return d.n1 == node.hash;}).y})
+            .attr("x2", function (d) {return logicalGraph.nodes.find(function (node) {return d.n2 == node.hash;}).x})
+            .attr("y2", function (d) {return logicalGraph.nodes.find(function (node) {return d.n2 == node.hash;}).y});
     }
 
     function resize() {
