@@ -41,7 +41,7 @@
     /* Behaviours */
     // Zoom behaviour
     var zoom = d3.zoom()
-            .scaleExtent([1, 10])
+            .scaleExtent([0.01, 10])
             .on("zoom", zoomed);
 
     // Drag behaviour
@@ -100,8 +100,7 @@
 
     /* Assumptions about this data:
      *
-     * //The first node is the root of the tree
-     * All nodes have unique hashes
+     *  All nodes have unique hashes
      * The DAG is connected
      * Depth is the maximum path length to the root
      *
@@ -130,16 +129,12 @@
                 return 0;
             });
 
-            for(var a = 0; a < currentLayer.length; a++){
-                console.log(currentLayer[a].branch);
-            }
-            console.log(branches);
-
             for(var j = 0; j < currentLayer.length; j++){
                 var node = currentLayer[j];
 
                 //Set logical coords
-                node.x = xSpacing*(x+1);
+                //node.x = xSpacing*(x+1);
+                node.x = xSpacing*(branches.indexOf(node.branch)+1);
                 node.y = ySpacing*(node.depth+1);
                 x++;
 
@@ -161,7 +156,7 @@
                     }
 
                     // If not already in graph/next layer, push node to next layer queue
-                    if(!previouslyOccurs) {
+                    if(!previouslyOccurs && candidateChild.depth == node.depth+1) {
                         nextLayer.push(candidateChild);
                         visited.push(candidateChild.hash);
 
@@ -182,6 +177,10 @@
             x = 0;
         }
 
+        for(var i = 0; i < branches.length; i++){
+            console.log(branches[i] + " " + i);
+        }
+
         // Create edges
         edges = container.append("g")
             .attr("class", "edges")
@@ -193,6 +192,8 @@
             .attr("y1", function (d) {return logicalGraph.nodes.find(function (node) {return d.n1 == node.hash;}).y})
             .attr("x2", function (d) {return logicalGraph.nodes.find(function (node) {return d.n2 == node.hash;}).x})
             .attr("y2", function (d) {return logicalGraph.nodes.find(function (node) {return d.n2 == node.hash;}).y})
+            .attr("n1", function (d) {return d.n1})
+            .attr("n2", function (d) {return d.n2})
             .attr("stroke", (function (d) {
                 return highlightColours[branches.indexOf(data.nodes.filter(function isTarget(node) {return node.hash == d.n2})[0].branch) % highlightColours.length];
             }))
@@ -280,6 +281,7 @@
     function dragged(d) {
         d3.select(this).attr("cx", d.x = d3.event.x)
                 .attr("cy", d.y = d3.event.y);
+
         updateEdges();
     }
 
