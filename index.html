@@ -8,6 +8,8 @@
             margin: 0;
             min-width: 800px;
             min-height: 600px;
+            overflow-y: hidden;
+            overflow-x: hidden;
         }
 
         .node circle{
@@ -30,7 +32,7 @@
 
     // Colours (solarized)
     var baseColours = ['#002b36', '#073642', '#586e75', '#657b83', '#839496', '#93a1a1', '#eee8d5', '#fdf6e3'],
-        highlightColours = ['#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'];
+        highlightColours = ['#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900', '#000000'];
 
     var xSpacing = 40;
     var ySpacing = 50;
@@ -114,19 +116,24 @@
         var visited = [currentLayer[0].hash];
         var nextLayer = [];
 
-        var branches = [];
+        var branches = [currentLayer[0].branch];
 
         var x = 0;
 
         var i = 0;
         while(currentLayer.length > 0){
-            currentLayer.sort(function (a, b) {
+            currentLayer = currentLayer.sort(function (a, b) {
                 var ai = branches.indexOf(a.branch);
                 var bi = branches.indexOf(b.branch);
                 if(ai < bi) return -1;
-                if(bi > ai) return 1;
+                if(ai > bi) return 1;
                 return 0;
             });
+
+            for(var a = 0; a < currentLayer.length; a++){
+                console.log(currentLayer[a].branch);
+            }
+            console.log(branches);
 
             for(var j = 0; j < currentLayer.length; j++){
                 var node = currentLayer[j];
@@ -144,12 +151,12 @@
                 var outEdges = data.edges.filter(function (edge) { return edge.n1 == node.hash;});
 
                 for(var k = 0; k < outEdges.length; k++){
-                    var candidateChild = data.nodes.find(function (node) {return (node.hash == outEdges[k].n2)});
+                    var candidateChild = data.nodes.find(function (node) {return node.hash == outEdges[k].n2});
 
                     // Check if already in the graph
                     var previouslyOccurs = false;
                     for(var l = 0; l < visited.length && !previouslyOccurs; l++){
-                        if (visited[l].hash == candidateChild.hash)
+                        if (visited[l] == candidateChild.hash)
                             previouslyOccurs = true;
                     }
 
@@ -160,9 +167,9 @@
 
                         // Check branches
                         //noinspection JSUnresolvedVariable
-                        if(branches.indexOf(node.branch) == -1)
+                        if(branches.indexOf(candidateChild.branch) == -1)
                         { //noinspection JSUnresolvedVariable
-                            branches.push(node.branch);
+                            branches.push(candidateChild.branch);
                         }
                     }
 
@@ -216,8 +223,8 @@
                         .attr("class", "label")
                         .attr("text-anchor", "middle")
                         .attr("x", d.x)
-                        .attr("y", d.y + 20)
-                        .text(d.hash)
+                        .attr("y", d.y + 25)
+                        .text(d.hash.substring(0, 6) + "...")
                         .attr("node", i)
                         .attr("fill", baseColours[6])
                         .attr("font-family", "sans-serif")
